@@ -1,0 +1,3 @@
+- add support for an example sentence 
+- make it not confused with commas
+- make more usable from phone (visually)
