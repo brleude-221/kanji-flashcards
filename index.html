@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Kanji Flashcards</title>
+
+<style>
+body{
+  font-family:sans-serif;
+  display:flex;
+  gap:30px;
+  padding:20px;
+}
+
+#main{
+  width:100%;
+  text-align:center;
+}
+
+#side{
+  width:40%;
+  border-left:1px solid #ccc;
+  padding-left:15px;
+  max-height:80vh;
+  overflow-y:auto;
+  display:block;   /* visible by default */
+}
+
+.card{
+  font-size:32px;
+  margin:40px 0;
+}
+
+.meaning{
+  font-size:20px;
+  color:#444;
+  margin-bottom:20px;
+}
+
+button,select{
+  font-size:16px;
+  margin:5px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+}
+
+th,td{
+  border:1px solid #ccc;
+  padding:4px;
+}
+
+hr{ margin:20px 0; }
+</style>
+</head>
+
+<body>
+
+<div id="main">
+
+<h2>Kanji Flashcards</h2>
+
+<input type="file" id="fileInput"><br>
+<hr>
+
+Mode:
+<select id="modeSelect">
+  <option value="k2r">Kanji → Reading</option>
+  <option value="r2k">Reading → Kanji</option>
+</select>
+
+<div>
+Total: <span id="total">0</span> |
+Round: <span id="seen">0</span> |
+Words Left: <span id="left">0</span>
+</div>
+
+<div class="card" id="card">Load a CSV</div>
+<div class="meaning" id="meaning"></div>
+
+<button onclick="toggleMeaning()">Meaning</button><br>
+<button onclick="know()">Know</button>
+<button onclick="dontKnow()">Don't Know</button>
+
+<hr>
+
+<button onclick="toggleSide()">Hide Unknown</button>
+
+</div>
+
+<div id="side">
+<h3>Unknown Words</h3>
+<table>
+<thead>
+<tr>
+<th>Kanji</th>
+<th>Reading</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody id="unknownTable"></tbody>
+</table>
+</div>
+
+<script>
+
+let allCards=[];
+let newCards=[];
+let roundQueue=[];
+let unknownMap=new Map();
+
+let index=0;
+let meaningVisible=false;
+
+/* ---------- Load CSV ---------- */
+
+fileInput.addEventListener("change",e=>{
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const rows=reader.result.trim().split("\n").map(r=>r.split(","));
+    allCards=rows.map(r=>({data:r,seen:0}));
+    resetSession();
+    show();
+  };
+  reader.readAsText(e.target.files[0]);
+});
+
+/* ---------- Mode Reset ---------- */
+
+modeSelect.addEventListener("change",()=>{
+  resetSession();
+  show();
+});
+
+/* ---------- Reset ---------- */
+
+function resetSession(){
+  newCards=[...allCards];
+  shuffle(newCards);
+  roundQueue=[];
+  unknownMap.clear();
+  index=0;
+  startNextRound();
+  renderUnknownTable();
+}
+
+/* ---------- Rounds ---------- */
+
+function startNextRound(){
+  if(newCards.length>0){
+    roundQueue=[...newCards];
+    newCards=[];
+  }else{
+    roundQueue=[...unknownMap.values()];
+  }
+  shuffle(roundQueue);
+  index=0;
+}
+
+/* ---------- Display ---------- */
+
+function show(){
+  if(roundQueue.length===0){
+    card.textContent=":)";
+    meaning.textContent="";
+    total.textContent=0;
+    seen.textContent=0;
+    left.textContent=0;
+    renderUnknownTable();
+    return;
+  }
+
+  const c=roundQueue[index];
+  c.seen++;
+
+  card.textContent =
+    modeSelect.value==="k2r"
+    ? c.data[0]
+    : c.data[1];
+
+  meaning.textContent="";
+  meaningVisible=false;
+
+  total.textContent=roundQueue.length;
+  seen.textContent=c.seen-1;
+  left.textContent=roundQueue.length-index;
+
+  renderUnknownTable();
+}
+
+/* ---------- Meaning ---------- */
+
+function toggleMeaning(){
+  if(roundQueue.length===0) return;
+  const c=roundQueue[index];
+
+  if(!meaningVisible){
+    meaning.textContent=c.data[2];
+    meaningVisible=true;
+  }else{
+    meaning.textContent="";
+    meaningVisible=false;
+  }
+}
+
+/* ---------- Buttons ---------- */
+
+function know(){
+  if(roundQueue.length===0) return;
+  const c=roundQueue[index];
+  unknownMap.delete(c.data.join(","));
+  nextCard();
+}
+
+function dontKnow(){
+  if(roundQueue.length===0) return;
+  const c=roundQueue[index];
+  unknownMap.set(c.data.join(","),c);
+  nextCard();
+}
+
+/* ---------- Navigation ---------- */
+
+function nextCard(){
+  index++;
+  if(index>=roundQueue.length){
+    startNextRound();
+  }
+  show();
+}
+
+/* ---------- Sidebar ---------- */
+
+function toggleSide(){
+  if(side.style.display==="none"){
+    side.style.display="block";
+    event.target.textContent="Hide Unknown";
+  }else{
+    side.style.display="none";
+    event.target.textContent="Show Unknown";
+  }
+  renderUnknownTable();
+}
+
+function renderUnknownTable(){
+  unknownTable.innerHTML="";
+  unknownMap.forEach(c=>{
+    const tr=document.createElement("tr");
+    c.data.forEach(v=>{
+      const td=document.createElement("td");
+      td.textContent=v;
+      tr.appendChild(td);
+    });
+    unknownTable.appendChild(tr);
+  });
+}
+
+/* ---------- Shuffle ---------- */
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+}
+
+</script>
+
+</body>
+</html>
+
