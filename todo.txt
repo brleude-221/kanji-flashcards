@@ -1,3 +1,4 @@
 - add support for an example sentence 
 - make it not confused with commas
 - make more usable from phone (visually)
+- add option of undoing the last action (going back to the previous card and undoing whatever was chosen for it)

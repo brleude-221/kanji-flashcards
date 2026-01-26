@@ -23,24 +23,20 @@ body{
   padding-left:15px;
   max-height:80vh;
   overflow-y:auto;
-  display:block;
 }
 
 .card{
-  font-size:32px;
-  margin:40px 0;
-}
-
-.reveal{
-  font-size:18px;
-  margin-bottom:10px;
-  min-height:24px;
+  font-size:40px;
+  margin:40px auto;
+  cursor:pointer;
+  user-select:none;
 }
 
 .meaning{
   font-size:20px;
   color:#444;
-  margin-bottom:20px;
+  margin-top:10px;
+  min-height:24px;
 }
 
 button,select{
@@ -84,17 +80,13 @@ Round: <span id="seen">0</span> |
 Words Left: <span id="left">0</span>
 </div>
 
-<div class="card" id="card">Load a CSV</div>
-
-<!-- NEW REVEAL AREA -->
-<div class="reveal">
-  <button id="revealBtn" onclick="toggleReveal()" style="display:none"></button>
-  <div id="revealText"></div>
+<div class="card" id="card" onclick="flipCard()">
+Load a CSV
 </div>
 
+<button onclick="toggleMeaning()">Meaning</button>
 <div class="meaning" id="meaning"></div>
 
-<button onclick="toggleMeaning()">Meaning</button><br>
 <button onclick="know()">Know</button>
 <button onclick="dontKnow()">Don't Know</button>
 
@@ -105,7 +97,7 @@ Words Left: <span id="left">0</span>
 </div>
 
 <div id="side">
-<h3>Unknown Words</h3>
+<h3 id="unknownTitle">Unknown</h3>
 <table>
 <thead>
 <tr>
@@ -127,7 +119,7 @@ let unknownMap=new Map();
 
 let index=0;
 let meaningVisible=false;
-let revealVisible=false;
+let showingFront=true;
 
 /* ---------- Load CSV ---------- */
 
@@ -146,6 +138,7 @@ fileInput.addEventListener("change",e=>{
 
 modeSelect.addEventListener("change",()=>{
   resetSession();
+  updateUnknownTitle();
   show();
 });
 
@@ -180,27 +173,18 @@ function show(){
   if(roundQueue.length===0){
     card.textContent=":)";
     meaning.textContent="";
-    revealText.textContent="";
-    revealBtn.style.display="none";
     return;
   }
 
   const c=roundQueue[index];
   c.seen++;
 
-  if(modeSelect.value==="k2r"){
-    card.textContent=c.data[0];   // kanji
-    revealBtn.textContent="Reading";
-  }else{
-    card.textContent=c.data[1];   // reading
-    revealBtn.textContent="Kanji";
-  }
-
+  showingFront=true;
   meaning.textContent="";
-  revealText.textContent="";
   meaningVisible=false;
-  revealVisible=false;
-  revealBtn.style.display="inline-block";
+
+  updateCardText();
+  updateUnknownTitle();
 
   total.textContent=roundQueue.length;
   seen.textContent=c.seen-1;
@@ -209,22 +193,22 @@ function show(){
   renderUnknownTable();
 }
 
-/* ---------- Reveal Reading / Kanji ---------- */
+/* ---------- Card Flip ---------- */
 
-function toggleReveal(){
-  if(roundQueue.length===0) return;
+function updateCardText(){
   const c=roundQueue[index];
 
-  if(!revealVisible){
-    revealText.textContent =
-      modeSelect.value==="k2r"
-      ? c.data[1]   // reading
-      : c.data[0];  // kanji
-    revealVisible=true;
+  if(modeSelect.value==="k2r"){
+    card.textContent = showingFront ? c.data[0] : c.data[1];
   }else{
-    revealText.textContent="";
-    revealVisible=false;
+    card.textContent = showingFront ? c.data[1] : c.data[0];
   }
+}
+
+function flipCard(){
+  if(roundQueue.length===0) return;
+  showingFront=!showingFront;
+  updateCardText();
 }
 
 /* ---------- Meaning ---------- */
@@ -279,6 +263,14 @@ function toggleSide(){
     event.target.textContent="Show Unknown";
   }
   renderUnknownTable();
+}
+
+function updateUnknownTitle(){
+  if(modeSelect.value==="k2r"){
+    unknownTitle.textContent="Unknown Reading";
+  }else{
+    unknownTitle.textContent="Unknown Kanji";
+  }
 }
 
 function renderUnknownTable(){
