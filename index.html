@@ -23,12 +23,18 @@ body{
   padding-left:15px;
   max-height:80vh;
   overflow-y:auto;
-  display:block;   /* visible by default */
+  display:block;
 }
 
 .card{
   font-size:32px;
   margin:40px 0;
+}
+
+.reveal{
+  font-size:18px;
+  margin-bottom:10px;
+  min-height:24px;
 }
 
 .meaning{
@@ -79,6 +85,13 @@ Words Left: <span id="left">0</span>
 </div>
 
 <div class="card" id="card">Load a CSV</div>
+
+<!-- NEW REVEAL AREA -->
+<div class="reveal">
+  <button id="revealBtn" onclick="toggleReveal()" style="display:none"></button>
+  <div id="revealText"></div>
+</div>
+
 <div class="meaning" id="meaning"></div>
 
 <button onclick="toggleMeaning()">Meaning</button><br>
@@ -114,6 +127,7 @@ let unknownMap=new Map();
 
 let index=0;
 let meaningVisible=false;
+let revealVisible=false;
 
 /* ---------- Load CSV ---------- */
 
@@ -166,29 +180,51 @@ function show(){
   if(roundQueue.length===0){
     card.textContent=":)";
     meaning.textContent="";
-    total.textContent=0;
-    seen.textContent=0;
-    left.textContent=0;
-    renderUnknownTable();
+    revealText.textContent="";
+    revealBtn.style.display="none";
     return;
   }
 
   const c=roundQueue[index];
   c.seen++;
 
-  card.textContent =
-    modeSelect.value==="k2r"
-    ? c.data[0]
-    : c.data[1];
+  if(modeSelect.value==="k2r"){
+    card.textContent=c.data[0];   // kanji
+    revealBtn.textContent="Reading";
+  }else{
+    card.textContent=c.data[1];   // reading
+    revealBtn.textContent="Kanji";
+  }
 
   meaning.textContent="";
+  revealText.textContent="";
   meaningVisible=false;
+  revealVisible=false;
+  revealBtn.style.display="inline-block";
 
   total.textContent=roundQueue.length;
   seen.textContent=c.seen-1;
   left.textContent=roundQueue.length-index;
 
   renderUnknownTable();
+}
+
+/* ---------- Reveal Reading / Kanji ---------- */
+
+function toggleReveal(){
+  if(roundQueue.length===0) return;
+  const c=roundQueue[index];
+
+  if(!revealVisible){
+    revealText.textContent =
+      modeSelect.value==="k2r"
+      ? c.data[1]   // reading
+      : c.data[0];  // kanji
+    revealVisible=true;
+  }else{
+    revealText.textContent="";
+    revealVisible=false;
+  }
 }
 
 /* ---------- Meaning ---------- */
