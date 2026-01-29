@@ -3,3 +3,4 @@
 - below the meaning button and above the know don't know and undo add a button called sentence if the loaded file has 4 columns
 It should display the corresponding sentence from the 4th column 
 When displaying the unknown I don't want this column to be displayed but when saving the unknown I want it to be saved if it originally existed 
+- correct readme
