@@ -37,11 +37,18 @@ body{
   color:#444;
   margin-top:10px;
   min-height:24px;
+  cursor:pointer;
 }
 
 button,select{
   font-size:16px;
   margin:5px;
+  text-transform: lowercase;
+}
+
+#saveContainer{
+  text-align:center;   /* ★ centers the save button */
+  margin-top:10px;
 }
 
 table{
@@ -70,8 +77,8 @@ hr{ margin:20px 0; }
 
 Mode:
 <select id="modeSelect">
-  <option value="k2r">Kanji → Reading</option>
-  <option value="r2k">Reading → Kanji</option>
+  <option value="k2r">kanji → reading</option>
+  <option value="r2k">reading → kanji</option>
 </select>
 
 <div>
@@ -80,19 +87,21 @@ Round: <span id="seen">0</span> |
 Words Left: <span id="left">0</span>
 </div>
 
-<div class="card" id="card" onclick="flipCard()">
+<div class="card" id="card" onclick="handleCardClick()">
 Load a CSV
 </div>
 
-<button onclick="toggleMeaning()">Meaning</button>
-<div class="meaning" id="meaning"></div>
+<button onclick="toggleMeaning()">meaning</button>
+<div class="meaning" id="meaning" onclick="meaningClick()"></div>
 
-<button onclick="know()">Know</button>
-<button onclick="dontKnow()">Don't Know</button>
+<button onclick="know()">know</button>
+<button onclick="dontKnow()">don't know</button>
+
+<button onclick="undo()">undo</button>
 
 <hr>
 
-<button onclick="toggleSide()">Hide Unknown</button>
+<button onclick="toggleSide()">hide unknown</button>
 
 </div>
 
@@ -108,6 +117,11 @@ Load a CSV
 </thead>
 <tbody id="unknownTable"></tbody>
 </table>
+
+<div id="saveContainer">
+  <button onclick="saveUnknown()">save</button>
+</div>
+
 </div>
 
 <script>
@@ -121,9 +135,15 @@ let index=0;
 let meaningVisible=false;
 let showingFront=true;
 
+let historyStack=[];
+let originalFileName="";   // ★ for saved file name
+
 /* ---------- Load CSV ---------- */
 
 fileInput.addEventListener("change",e=>{
+  const file = e.target.files[0];
+  originalFileName = file.name.replace(/\.[^/.]+$/, "");  // remove extension
+
   const reader=new FileReader();
   reader.onload=()=>{
     const rows=reader.result.trim().split("\n").map(r=>r.split(","));
@@ -131,7 +151,7 @@ fileInput.addEventListener("change",e=>{
     resetSession();
     show();
   };
-  reader.readAsText(e.target.files[0]);
+  reader.readAsText(file);
 });
 
 /* ---------- Mode Reset ---------- */
@@ -149,6 +169,7 @@ function resetSession(){
   shuffle(newCards);
   roundQueue=[];
   unknownMap.clear();
+  historyStack=[];
   index=0;
   startNextRound();
   renderUnknownTable();
@@ -173,6 +194,9 @@ function show(){
   if(roundQueue.length===0){
     card.textContent=":)";
     meaning.textContent="";
+    total.textContent=0;
+    left.textContent=0;
+    renderUnknownTable();
     return;
   }
 
@@ -193,7 +217,7 @@ function show(){
   renderUnknownTable();
 }
 
-/* ---------- Card Flip ---------- */
+/* ---------- Card Logic ---------- */
 
 function updateCardText(){
   const c=roundQueue[index];
@@ -205,8 +229,13 @@ function updateCardText(){
   }
 }
 
-function flipCard(){
-  if(roundQueue.length===0) return;
+function handleCardClick(){
+  if(roundQueue.length===0){
+    // Finished mode: flip between :) and (:
+    card.textContent = card.textContent === ":)" ? "(:"
+                                                 : ":)";
+    return;
+  }
   showingFront=!showingFront;
   updateCardText();
 }
@@ -214,7 +243,11 @@ function flipCard(){
 /* ---------- Meaning ---------- */
 
 function toggleMeaning(){
-  if(roundQueue.length===0) return;
+  if(roundQueue.length===0){
+    meaning.textContent="you did good!";
+    return;
+  }
+
   const c=roundQueue[index];
 
   if(!meaningVisible){
@@ -226,11 +259,20 @@ function toggleMeaning(){
   }
 }
 
+function meaningClick(){
+  if(roundQueue.length===0){
+    meaning.textContent="you did good!";
+  }
+}
+
 /* ---------- Buttons ---------- */
 
 function know(){
   if(roundQueue.length===0) return;
   const c=roundQueue[index];
+
+  historyStack.push({card:c, action:"know", wasUnknown:unknownMap.has(c.data.join(","))});
+
   unknownMap.delete(c.data.join(","));
   nextCard();
 }
@@ -238,8 +280,35 @@ function know(){
 function dontKnow(){
   if(roundQueue.length===0) return;
   const c=roundQueue[index];
+
+  historyStack.push({card:c, action:"dontKnow"});
+
   unknownMap.set(c.data.join(","),c);
   nextCard();
+}
+
+/* ---------- Undo ---------- */
+
+function undo(){
+  if(historyStack.length===0) return;
+
+  index = Math.max(0, index - 1);
+
+  const last = historyStack.pop();
+  const c = last.card;
+  const key = c.data.join(",");
+
+  if(last.action==="know"){
+    if(last.wasUnknown){
+      unknownMap.set(key,c);
+    }
+  }
+
+  if(last.action==="dontKnow"){
+    unknownMap.delete(key);
+  }
+
+  show();
 }
 
 /* ---------- Navigation ---------- */
@@ -257,10 +326,10 @@ function nextCard(){
 function toggleSide(){
   if(side.style.display==="none"){
     side.style.display="block";
-    event.target.textContent="Hide Unknown";
+    event.target.textContent="hide unknown";
   }else{
     side.style.display="none";
-    event.target.textContent="Show Unknown";
+    event.target.textContent="show unknown";
   }
   renderUnknownTable();
 }
@@ -275,6 +344,11 @@ function updateUnknownTitle(){
 
 function renderUnknownTable(){
   unknownTable.innerHTML="";
+
+  if(unknownMap.size===0){
+    return;
+  }
+
   unknownMap.forEach(c=>{
     const tr=document.createElement("tr");
     c.data.forEach(v=>{
@@ -284,6 +358,35 @@ function renderUnknownTable(){
     });
     unknownTable.appendChild(tr);
   });
+}
+
+/* ---------- Save Unknown CSV ---------- */
+
+function saveUnknown(){
+  if(unknownMap.size===0){
+    alert("No unknown words to save.");
+    return;
+  }
+
+  let csv = "";
+  unknownMap.forEach(c=>{
+    csv += c.data.join(",") + "\n";
+  });
+
+  const blob = new Blob([csv],{type:"text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  // ★ file naming rule
+  let suffix = modeSelect.value === "k2r"
+    ? "_unknown_reading"
+    : "_unknown_kanji";
+
+  a.href = url;
+  a.download = originalFileName + suffix + ".csv";
+  a.click();
+
+  URL.revokeObjectURL(url);
 }
 
 /* ---------- Shuffle ---------- */

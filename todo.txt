@@ -1,6 +1,4 @@
-- add support for an example sentence 
+- add support for an example sentence
 - make it not confused with commas
 - make more usable from phone (visually)
-- add option of undoing the last action (going back to the previous card and undoing whatever was chosen for it)
-- allow to save unknown words (maybe only the result of each round)
-- fix the last word showing in unknown when done
+- choose file from git
