@@ -17,44 +17,48 @@ I hope it can be useful.
 
 ## Features
 
+* CSV files can be loaded directly from the `csv` folder in this directory or from your device.  
+  This is a stupid, self-centered design choice, but it’s practical for personal use. I'm sorry for the extra botton. 
 * Two study modes:
-
   * Kanji → Reading
   * Reading → Kanji
 * Meaning can be shown or hidden
+* Optional example sentences
+  * A 4th column may be included in the CSV to contain an example sentence
+  * When present, a button is shown to toggle the example sentence display
 * Tracks known and unknown words
+  * Unknown words can be saved as a CSV file
+  * The filename includes the study set name and the study mode from which the words were extracted
 * Words marked as unknown are repeated in future rounds
 * Displays overall progress and round information
 * Unknown words list can be shown or hidden
+* CSV files can be loaded directly from the `csv` folder in this directory.  
+  This is admittedly a simple, self-centered design choice, but it’s practical and convenient for personal use.
 
 ---
 
 ## CSV Input Format
 
-The app accepts a CSV file with **exactly three columns in this order**:
+The app accepts a CSV file with **three required columns** and **one optional column**, in the following order:
 
 ```
-kanji, reading, meaning
+kanji, reading, meaning, example sentence (optional)
 ```
 
-Example:
+### Example
 
 ```
-交差点, こうさてん, crossing; intersection
+交差点, こうさてん, crossing; intersection, いつかこの交差点ゲームを絶対に作ってやる。
 IKE麺, いけめん, the best dad joke
 ```
 
-> IKE麺 is the name of a restaurant found inside Ikebukuro Station that serves noodle dishes. It is a wordplay on イケメン (good-looking guy), replacing メン with 麺 (noodles). I love it：） 
+> IKE麺 is the name of a restaurant found inside Ikebukuro Station that serves noodle dishes.
+> It is a wordplay on イケメン (good-looking guy), replacing メン with 麺 (noodles). I love it：）
 
-⚠️ If your data contains commas inside fields, parsing issues may occur.
+⚠️ If your data contains commas inside fields, there will be parsing issues.
 
 ---
 
 ## Intended Use
 
 This tool is built for a **very specific personal workflow** and is not a versatile flashcard system.
-
-That said, I hope to continue improving it over time.
-
----
-
