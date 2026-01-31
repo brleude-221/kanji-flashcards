@@ -25,9 +25,7 @@ body{
   overflow-y:auto;
 }
 
-/* -------- BUTTON + FILE INPUT UNIFORM STYLE -------- */
-
-.button-like {
+.button-like, button{
   display:inline-block;
   padding:6px 12px;
   background:#f0f0f0;
@@ -39,22 +37,7 @@ body{
   margin:5px;
 }
 
-button{
-  padding:6px 12px;
-  background:#f0f0f0;
-  border:1px solid #ccc;
-  border-radius:4px;
-  cursor:pointer;
-  text-transform: lowercase;
-  font-size:16px;
-  margin:5px;
-}
-
-input[type="file"]{
-  display:none;
-}
-
-/* -------------------- */
+input[type="file"]{ display:none; }
 
 .card{
   font-size:40px;
@@ -71,16 +54,16 @@ input[type="file"]{
   cursor:pointer;
 }
 
-select{
-  font-size:16px;
-  margin:5px;
-  text-transform: lowercase;
+#sentence{
+  font-size:18px;
+  color:#333;
+  margin-top:10px;
+  min-height:24px;
 }
 
-#saveContainer{
-  text-align:center;
-  margin-top:10px;
-}
+select{ font-size:16px; margin:5px; text-transform: lowercase; }
+
+#saveContainer{ text-align:center; margin-top:10px; }
 
 table{
   width:100%;
@@ -94,6 +77,7 @@ th,td{
 }
 
 hr{ margin:20px 0; }
+.hidden{ display:none; }
 </style>
 </head>
 
@@ -103,13 +87,11 @@ hr{ margin:20px 0; }
 
 <h2>Kanji Flashcards</h2>
 
-<!-- Local upload (now lowercase + matching style) -->
 <label class="button-like" for="fileInput">choose file</label>
 <input type="file" id="fileInput">
 
 <br>
 
-<!-- GitHub Loader: button identical to choose file -->
 <label class="button-like" onclick="loadFromGithub()">load from github</label>
 <select id="githubSelect"></select>
 
@@ -127,16 +109,19 @@ Round: <span id="seen">0</span> |
 Words Left: <span id="left">0</span>
 </div>
 
-<div class="card" id="card" onclick="handleCardClick()">
-Load a CSV
+<div class="card" id="card" onclick="handleCardClick()">Load a CSV</div>
+
+<div id="controls">
+  <button onclick="toggleMeaning()">meaning</button>
+  <div class="meaning" id="meaning"></div>
+
+  <button id="sentenceBtn" onclick="toggleSentence()" class="hidden">sentence</button>
+  <div id="sentence"></div>
+
+  <button onclick="know()">know</button>
+  <button onclick="dontKnow()">don't know</button>
+  <button onclick="undo()">undo</button>
 </div>
-
-<button onclick="toggleMeaning()">meaning</button>
-<div class="meaning" id="meaning" onclick="meaningClick()"></div>
-
-<button onclick="know()">know</button>
-<button onclick="dontKnow()">don't know</button>
-<button onclick="undo()">undo</button>
 
 <hr>
 
@@ -164,92 +149,58 @@ Load a CSV
 </div>
 
 <script>
-
-let allCards=[];
-let newCards=[];
-let roundQueue=[];
+let allCards=[], newCards=[], roundQueue=[];
 let unknownMap=new Map();
-
-let index=0;
-let meaningVisible=false;
-let showingFront=true;
-
+let index=0, showingFront=true;
 let historyStack=[];
 let originalFileName="";
+let hasSentence=false;
+let sentenceVisible=false;
 
-/* -------------------------------
-   LOAD CSV FROM GITHUB
--------------------------------- */
-
-const githubFolderURL =
-  "https://api.github.com/repos/brleude-221/kanji-flashcards/contents/csv";
+/* ---------- github ---------- */
+const githubFolderURL="https://api.github.com/repos/brleude-221/kanji-flashcards/contents/csv";
 
 async function loadGithubList(){
-  const res = await fetch(githubFolderURL);
-  const files = await res.json();
-
-  githubSelect.innerHTML = "";
-
-  files
-    .filter(f => f.name.endsWith(".csv"))
-    .forEach(f=>{
-      const opt = document.createElement("option");
-      opt.value = f.download_url;
-      opt.textContent = f.name;
-      githubSelect.appendChild(opt);
-    });
+  const res=await fetch(githubFolderURL);
+  const files=await res.json();
+  githubSelect.innerHTML="";
+  files.filter(f=>f.name.endsWith(".csv")).forEach(f=>{
+    const opt=document.createElement("option");
+    opt.value=f.download_url;
+    opt.textContent=f.name;
+    githubSelect.appendChild(opt);
+  });
 }
-
 loadGithubList();
 
-/* Load selected GitHub CSV */
 async function loadFromGithub(){
-  const url = githubSelect.value;
-  originalFileName = githubSelect.selectedOptions[0].textContent.replace(".csv","");
-
-  const res = await fetch(url);
-  const text = await res.text();
-
-  const rows = text.trim().split("\n").map(r=>r.split(","));
-  allCards = rows.map(r=>({data:r,seen:0}));
-
-  resetSession();
-  show();
+  const res=await fetch(githubSelect.value);
+  const text=await res.text();
+  originalFileName=githubSelect.selectedOptions[0].textContent.replace(".csv","");
+  loadCSV(text);
 }
 
-/* -------------------------------
-   LOAD CSV FROM USER UPLOAD
--------------------------------- */
-
+/* ---------- local ---------- */
 fileInput.addEventListener("change",e=>{
-  const file = e.target.files[0];
+  const file=e.target.files[0];
   if(!file) return;
-
-  originalFileName = file.name.replace(/\.[^/.]+$/, "");
-
+  originalFileName=file.name.replace(/\.[^/.]+$/,"");
   const reader=new FileReader();
-  reader.onload=()=>{
-    const rows=reader.result.trim().split("\n").map(r=>r.split(","));
-    allCards=rows.map(r=>({data:r,seen:0}));
-    resetSession();
-    show();
-  };
+  reader.onload=()=>loadCSV(reader.result);
   reader.readAsText(file);
 });
 
-/* -------------------------------
-   MODE RESET
--------------------------------- */
-
-modeSelect.addEventListener("change",()=>{
+/* ---------- core ---------- */
+function loadCSV(text){
+  const rows=text.trim().split("\n").map(r=>r.split(","));
+  allCards=rows.map(r=>({data:r,seen:0}));
+  hasSentence = rows[0].length >= 4;
+  sentenceBtn.classList.toggle("hidden",!hasSentence);
   resetSession();
-  updateUnknownTitle();
   show();
-});
+}
 
-/* -------------------------------
-   RESET SESSION
--------------------------------- */
+modeSelect.addEventListener("change",()=>{ resetSession(); show(); });
 
 function resetSession(){
   newCards=[...allCards];
@@ -259,166 +210,110 @@ function resetSession(){
   historyStack=[];
   index=0;
   startNextRound();
-  renderUnknownTable();
+  controls.classList.remove("hidden");
 }
 
-/* -------------------------------
-   ROUNDS
--------------------------------- */
-
 function startNextRound(){
-  if(newCards.length>0){
-    roundQueue=[...newCards];
-    newCards=[];
-  }else{
-    roundQueue=[...unknownMap.values()];
-  }
+  if(newCards.length) roundQueue=[...newCards], newCards=[];
+  else roundQueue=[...unknownMap.values()];
   shuffle(roundQueue);
   index=0;
 }
-
-/* -------------------------------
-   DISPLAY
--------------------------------- */
 
 function show(){
   if(roundQueue.length===0){
     card.textContent=":)";
     meaning.textContent="";
-    total.textContent=0;
-    left.textContent=0;
+    sentence.textContent="";
+    controls.classList.add("hidden");
+    total.textContent=seen.textContent=left.textContent=0;
     renderUnknownTable();
     return;
   }
 
   const c=roundQueue[index];
   c.seen++;
-
   showingFront=true;
   meaning.textContent="";
-  meaningVisible=false;
-
+  sentence.textContent="";
+  sentenceVisible=false;
   updateCardText();
-  updateUnknownTitle();
 
   total.textContent=roundQueue.length;
   seen.textContent=c.seen-1;
   left.textContent=roundQueue.length-index;
-
+  updateUnknownTitle();
   renderUnknownTable();
 }
 
-/* -------------------------------
-   CARD FLIP
--------------------------------- */
-
 function updateCardText(){
   const c=roundQueue[index];
-
-  if(modeSelect.value==="k2r"){
-    card.textContent = showingFront ? c.data[0] : c.data[1];
-  }else{
-    card.textContent = showingFront ? c.data[1] : c.data[0];
-  }
+  card.textContent =
+    modeSelect.value==="k2r"
+      ? (showingFront ? c.data[0] : c.data[1])
+      : (showingFront ? c.data[1] : c.data[0]);
 }
 
 function handleCardClick(){
   if(roundQueue.length===0){
-    card.textContent = card.textContent === ":)" ? "(:"
-                                                 : ":)";
+    card.textContent=card.textContent===":)"?"(:":":)";
     return;
   }
   showingFront=!showingFront;
   updateCardText();
 }
 
-/* -------------------------------
-   MEANING
--------------------------------- */
-
+/* ---------- meaning / sentence ---------- */
 function toggleMeaning(){
-  if(roundQueue.length===0){
-    meaning.textContent="you did good!";
-    return;
-  }
-
-  const c=roundQueue[index];
-  meaning.textContent = meaningVisible ? "" : c.data[2];
-  meaningVisible = !meaningVisible;
-}
-
-/* -------------------------------
-   KNOW / DON'T KNOW
--------------------------------- */
-
-function know(){
   if(roundQueue.length===0) return;
   const c=roundQueue[index];
+  meaning.textContent = meaning.textContent ? "" : c.data[2];
+}
 
-  historyStack.push({card:c, action:"know", wasUnknown:unknownMap.has(c.data.join(","))});
+function toggleSentence(){
+  if(!hasSentence || roundQueue.length===0) return;
+  const c=roundQueue[index];
+  sentence.textContent = sentenceVisible ? "" : c.data[3];
+  sentenceVisible=!sentenceVisible;
+}
+
+/* ---------- know / dont ---------- */
+function know(){
+  if(!roundQueue.length) return;
+  const c=roundQueue[index];
+  historyStack.push({card:c,wasUnknown:unknownMap.has(c.data.join(","))});
   unknownMap.delete(c.data.join(","));
   nextCard();
 }
 
 function dontKnow(){
-  if(roundQueue.length===0) return;
+  if(!roundQueue.length) return;
   const c=roundQueue[index];
-
-  historyStack.push({card:c, action:"dontKnow"});
+  historyStack.push({card:c,dont:true});
   unknownMap.set(c.data.join(","),c);
   nextCard();
 }
 
-/* -------------------------------
-   UNDO
--------------------------------- */
-
 function undo(){
-  if(historyStack.length===0) return;
-
-  index = Math.max(0, index - 1);
-
-  const last = historyStack.pop();
-  const c = last.card;
-  const key = c.data.join(",");
-
-  if(last.action==="know"){
-    if(last.wasUnknown){
-      unknownMap.set(key,c);
-    }
-  }
-
-  if(last.action==="dontKnow"){
-    unknownMap.delete(key);
-  }
-
+  if(!historyStack.length) return;
+  index=Math.max(0,index-1);
+  const last=historyStack.pop();
+  const key=last.card.data.join(",");
+  if(last.dont) unknownMap.delete(key);
+  else if(last.wasUnknown) unknownMap.set(key,last.card);
   show();
 }
-
-/* -------------------------------
-   NEXT CARD
--------------------------------- */
 
 function nextCard(){
   index++;
-  if(index>=roundQueue.length){
-    startNextRound();
-  }
+  if(index>=roundQueue.length) startNextRound();
   show();
 }
 
-/* -------------------------------
-   SIDEBAR
--------------------------------- */
-
+/* ---------- sidebar ---------- */
 function toggleSide(){
-  if(side.style.display==="none"){
-    side.style.display="block";
-    event.target.textContent="hide unknown";
-  }else{
-    side.style.display="none";
-    event.target.textContent="show unknown";
-  }
+  side.style.display = side.style.display==="none"?"block":"none";
+  event.target.textContent = side.style.display==="none"?"show unknown":"hide unknown";
 }
 
 function updateUnknownTitle(){
@@ -428,12 +323,9 @@ function updateUnknownTitle(){
 
 function renderUnknownTable(){
   unknownTable.innerHTML="";
-
-  if(unknownMap.size===0) return;
-
   unknownMap.forEach(c=>{
     const tr=document.createElement("tr");
-    c.data.forEach(v=>{
+    c.data.slice(0,3).forEach(v=>{
       const td=document.createElement("td");
       td.textContent=v;
       tr.appendChild(td);
@@ -442,47 +334,25 @@ function renderUnknownTable(){
   });
 }
 
-/* -------------------------------
-   SAVE UNKNOWN CSV
--------------------------------- */
-
+/* ---------- save ---------- */
 function saveUnknown(){
-  if(unknownMap.size===0){
-    alert("No unknown words to save.");
-    return;
-  }
-
-  let csv = "";
-  unknownMap.forEach(c=>{
-    csv += c.data.join(",") + "\n";
-  });
-
-  const blob = new Blob([csv],{type:"text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-
-  let suffix = modeSelect.value === "k2r"
-    ? "_unknown_reading"
-    : "_unknown_kanji";
-
-  a.href = url;
-  a.download = originalFileName + suffix + ".csv";
+  if(!unknownMap.size) return alert("No unknown words to save.");
+  let csv="";
+  unknownMap.forEach(c=>csv+=c.data.join(",")+"\n");
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=originalFileName+(modeSelect.value==="k2r"?"_unknown_reading":"_unknown_kanji")+".csv";
   a.click();
-
-  URL.revokeObjectURL(url);
 }
 
-/* -------------------------------
-   SHUFFLE
--------------------------------- */
-
+/* ---------- util ---------- */
 function shuffle(a){
   for(let i=a.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
     [a[i],a[j]]=[a[j],a[i]];
   }
 }
-
 </script>
 
 </body>
