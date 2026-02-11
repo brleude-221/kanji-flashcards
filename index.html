@@ -263,18 +263,37 @@ function handleCardClick(){
   updateCardText();
 }
 
-/* ---------- meaning / sentence ---------- */
+/* ---------- meaning ---------- */
 function toggleMeaning(){
   if(roundQueue.length===0) return;
   const c=roundQueue[index];
   meaning.textContent = meaning.textContent ? "" : c.data[2];
 }
 
+/* ---------- UPDATED SENTENCE LOGIC HERE ---------- */
 function toggleSentence(){
   if(!hasSentence || roundQueue.length===0) return;
   const c=roundQueue[index];
-  sentence.textContent = sentenceVisible ? "" : c.data[3];
-  sentenceVisible=!sentenceVisible;
+  let s = c.data[3];
+
+  if (modeSelect.value === "r2k") {
+      const word = c.data[0];      // e.g. 食べる
+      const reading = c.data[1];   // e.g. たべる
+
+      // Extract kanji characters only
+      const kanjiOnly = [...word].filter(ch => /\p{Script=Han}/u.test(ch)).join("");
+
+      if (kanjiOnly.length > 0) {
+          // First part of reading corresponds to kanji count
+          const kanaPart = reading.slice(0, kanjiOnly.length);
+
+          // Replace only the kanji sequence
+          s = s.replaceAll(kanjiOnly, kanaPart);
+      }
+  }
+
+  sentence.textContent = sentenceVisible ? "" : s;
+  sentenceVisible = !sentenceVisible;
 }
 
 /* ---------- know / dont ---------- */
