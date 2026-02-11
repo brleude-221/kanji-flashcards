@@ -26,6 +26,7 @@ I hope it can be useful.
 * Optional example sentences
   * A 4th column may be included in the CSV to contain an example sentence
   * When present, a button is shown to toggle the example sentence display
+  * When the Reading → Kanji mode is chosen, the kanji of the word thats being studied is replaced with the reading
 * Tracks known and unknown words
   * Unknown words can be saved as a CSV file
   * The filename includes the study set name and the study mode from which the words were extracted
